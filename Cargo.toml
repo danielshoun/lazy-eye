@@ -1,0 +1,30 @@
+[package]
+name = "lazy-eye"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clokwerk = "0.3.5"
+lazy_static = "1.4.0"
+tray-item = "0.7.0"
+
+[dependencies.windows]
+version = "0.34.0"
+features = [
+    "Data_Xml_Dom",
+    "Foundation",
+    "Foundation_Collections",
+    "UI_Notifications",
+    "Win32_Foundation",
+    "Win32_Storage_EnhancedStorage",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Registry",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_PropertiesSystem",
+]
+
+[build-dependencies]
+windres = "*"

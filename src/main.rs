@@ -40,14 +40,15 @@ lazy_static! {
 }
 const APP_ID_STRING: &str = "LazyEye";
 
-unsafe fn set_registry_key(h_key: HKEY, name: &str, data: &str) {
-    let sub_key = CString::new("SOFTWARE\\Classes\\AppUserModelId\\LazyEye").unwrap();
-    let sub_key_ptr = sub_key.as_bytes_with_nul().as_ptr();
-    let sub_key_pcstr = PCSTR(sub_key_ptr);
+fn string_to_pcstr(string: &str) -> PCSTR {
+    let c_string = CString::new(string).unwrap();
+    let ptr = c_string.as_bytes_with_nul().as_ptr();
+    return PCSTR(ptr);
+}
 
-    let value_name = CString::new(name).unwrap();
-    let value_name_ptr = value_name.as_bytes_with_nul().as_ptr();
-    let value_name_pcstr = PCSTR(value_name_ptr);
+unsafe fn set_registry_key(h_key: HKEY, name: &str, data: &str) {
+    let sub_key = string_to_pcstr("SOFTWARE\\Classes\\AppUserModelId\\LazyEye");
+    let value_name = string_to_pcstr(name);
 
     let value_data = String::from(data);
     let value_data_c_string = CString::new(value_data).unwrap();
@@ -55,8 +56,8 @@ unsafe fn set_registry_key(h_key: HKEY, name: &str, data: &str) {
 
     RegSetKeyValueA(
         h_key,
-        sub_key_pcstr,
-        value_name_pcstr,
+        sub_key,
+        value_name,
         REG_EXPAND_SZ.0,
         value_data_c_void,
         value_data_c_string.as_bytes_with_nul().len() as u32,
@@ -64,14 +65,12 @@ unsafe fn set_registry_key(h_key: HKEY, name: &str, data: &str) {
 }
 
 unsafe fn create_shortcut(path: String) {
-    let exe_path = CString::new(env::current_exe().unwrap().to_str().unwrap()).unwrap();
-    let exe_path_ptr = exe_path.as_bytes_with_nul().as_ptr();
-    let exe_path_pcstr = PCSTR(exe_path_ptr);
+    let exe_path = string_to_pcstr(env::current_exe().unwrap().to_str().unwrap());
 
     let shell_link: IShellLinkA =
         CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER).unwrap();
 
-    shell_link.SetPath(exe_path_pcstr).unwrap();
+    shell_link.SetPath(exe_path).unwrap();
 
     let property_store: IPropertyStore = shell_link.cast().unwrap();
 
@@ -114,6 +113,24 @@ fn create_shortcut_and_registry_data_if_not_exists() {
     }
 }
 
+fn create_notification_button(document: &XmlDocument, button_text: &str, event_name: &str) -> XmlElement {
+    let button_element: XmlElement = document.CreateElement(HSTRING::from("action")).unwrap();
+    button_element.SetAttribute(
+        HSTRING::from("content"),
+        HSTRING::from(button_text)
+    ).unwrap();
+    button_element.SetAttribute(
+        HSTRING::from("arguments"),
+        HSTRING::from(event_name)
+    ).unwrap();
+    button_element.SetAttribute(
+        HSTRING::from("type"),
+        HSTRING::from(event_name)
+    ).unwrap();
+
+    return button_element;
+}
+
 fn send_notification(manager: &ToastNotificationManagerForUser) {
     let content: XmlDocument =
         ToastNotificationManager::GetTemplateContent(ToastTemplateType::ToastText01).unwrap();
@@ -122,18 +139,8 @@ fn send_notification(manager: &ToastNotificationManagerForUser) {
 
     toast_element.SetAttribute(HSTRING::from("scenario"), HSTRING::from("reminder")).unwrap();
 
-    let start_timer_action_element: XmlElement =
-        content.CreateElement(HSTRING::from("action")).unwrap();
-    start_timer_action_element.SetAttribute(HSTRING::from("content"), HSTRING::from("Start Timer")).unwrap();
-    start_timer_action_element
-        .SetAttribute(HSTRING::from("arguments"), HSTRING::from("start_timer")).unwrap();
-    start_timer_action_element.SetAttribute(HSTRING::from("type"), HSTRING::from("start_timer")).unwrap();
-
-    let dismiss_action_element: XmlElement =
-        content.CreateElement(HSTRING::from("action")).unwrap();
-    dismiss_action_element.SetAttribute(HSTRING::from("content"), HSTRING::from("Dismiss")).unwrap();
-    dismiss_action_element.SetAttribute(HSTRING::from("arguments"), HSTRING::from("dismiss")).unwrap();
-    dismiss_action_element.SetAttribute(HSTRING::from("type"), HSTRING::from("dismiss")).unwrap();
+    let start_timer_action_element: XmlElement = create_notification_button(&content, "Start Timer", "start_timer");
+    let dismiss_action_element: XmlElement = create_notification_button(&content, "Dismiss", "dismiss");
 
     let actions_element: XmlElement = content.CreateElement(HSTRING::from("actions")).unwrap();
     actions_element.AppendChild(start_timer_action_element).unwrap();
